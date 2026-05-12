@@ -319,6 +319,54 @@ body{
 .sort-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 
 /* === KATEX FIX === */
+/* === SOLVED VIEW === */
+.solved-stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px;margin-bottom:24px;
+}
+.stat-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px;text-align:center;
+}
+.stat-card .stat-value{
+  font-family:var(--font-display);font-size:1.6rem;font-weight:700;
+  color:var(--accent);
+}
+.stat-card .stat-label{
+  font-size:.72rem;color:var(--text-muted);margin-top:2px;
+  font-family:var(--font-display);text-transform:uppercase;letter-spacing:.06em;
+}
+.solved-item{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 18px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--radius);
+  border-left:3px solid var(--green);
+  transition:background .15s;
+}
+.solved-item:hover{background:var(--bg-card-hover)}
+.solved-item .si-title{
+  font-family:var(--font-display);font-size:.92rem;font-weight:500;
+  color:var(--text);flex:1;
+}
+.solved-item .si-cat{
+  font-size:.7rem;color:var(--text-muted);font-family:var(--font-mono);
+}
+.solved-item .si-date{
+  font-size:.72rem;color:var(--text-muted);font-family:var(--font-mono);
+  white-space:nowrap;
+}
+.solved-item .si-remove{
+  background:none;border:none;cursor:pointer;
+  color:var(--text-muted);font-size:.85rem;padding:4px;
+  border-radius:4px;transition:all .15s;
+}
+.solved-item .si-remove:hover{color:var(--red);background:var(--red-dim)}
+.solved-timeline-date{
+  font-family:var(--font-display);font-size:.78rem;font-weight:600;
+  color:var(--text-muted);padding:8px 0 4px;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+
 .katex{font-size:1em!important}
 .katex-display{margin:.5em 0!important}
 </style>
@@ -335,6 +383,10 @@ body{
   <div class="logo">BrainGames<small>Коллекция головоломок</small></div>
   <div class="nav-section">Категории</div>
   <nav id="cat-nav"></nav>
+  <div class="nav-section" style="margin-top:8px">Прогресс</div>
+  <button class="cat-btn" id="solved-nav-btn" onclick="showSolvedView()">
+    <span>✅ Решённые</span><span class="count" id="solved-nav-count">0</span>
+  </button>
   <div class="sidebar-footer">
     <button class="daily-btn" onclick="showDaily()">&#9733; Задача дня</button>
     <div class="stats-bar">
@@ -387,17 +439,26 @@ const CAT_ICONS = {
 let currentCat = 'logic';
 let currentSort = 'default';
 let searchQuery = '';
+let viewMode = 'category'; // 'category' or 'solved'
 
-// LocalStorage helpers
+// LocalStorage helpers — stores {id: "ISO timestamp"}
 function getSolved() {
-  try { return JSON.parse(localStorage.getItem('bg_solved') || '{}'); } catch { return {}; }
+  try {
+    const raw = JSON.parse(localStorage.getItem('bg_solved') || '{}');
+    // Migrate old format (true -> timestamp)
+    let migrated = false;
+    for (const k in raw) { if (raw[k] === true) { raw[k] = new Date().toISOString(); migrated = true; } }
+    if (migrated) localStorage.setItem('bg_solved', JSON.stringify(raw));
+    return raw;
+  } catch { return {}; }
 }
 function setSolved(id, val) {
   const s = getSolved();
-  if (val) s[id] = true; else delete s[id];
+  if (val) s[id] = new Date().toISOString(); else delete s[id];
   localStorage.setItem('bg_solved', JSON.stringify(s));
 }
 function isSolved(id) { return !!getSolved()[id]; }
+function solvedAt(id) { return getSolved()[id] || null; }
 function totalSolved() { return Object.keys(getSolved()).length; }
 function totalPuzzles() { return Object.values(DATA).reduce((a, b) => a + b.length, 0); }
 
@@ -409,17 +470,26 @@ function buildNav() {
   for (const [key, puzzles] of Object.entries(DATA)) {
     const solvedInCat = puzzles.filter(p => solved[p.id]).length;
     const btn = document.createElement('button');
-    btn.className = 'cat-btn' + (key === currentCat ? ' active' : '');
+    btn.className = 'cat-btn' + (viewMode === 'category' && key === currentCat ? ' active' : '');
     btn.innerHTML = `<span>${CAT_ICONS[key] || ''} ${CAT_LABELS[key] || key}</span><span class="solved-count">${solvedInCat ? solvedInCat + '✓' : ''}</span><span class="count">${puzzles.length}</span>`;
-    btn.onclick = () => { currentCat = key; render(); closeSidebarMobile(); };
+    btn.onclick = () => { currentCat = key; viewMode = 'category'; render(); closeSidebarMobile(); };
     nav.appendChild(btn);
   }
+  // Update solved nav button
+  const solvedBtn = document.getElementById('solved-nav-btn');
+  solvedBtn.className = 'cat-btn' + (viewMode === 'solved' ? ' active' : '');
+  document.getElementById('solved-nav-count').textContent = totalSolved();
 }
 
 // Render puzzles
 function render() {
   buildNav();
   updateStats();
+
+  if (viewMode === 'solved') { renderSolvedView(); return; }
+
+  document.getElementById('sort-bar').style.display = '';
+  document.getElementById('search').parentElement.style.display = '';
 
   const puzzles = DATA[currentCat] || [];
   const title = CAT_LABELS[currentCat] || currentCat;
@@ -502,6 +572,119 @@ function updateStats() {
   const ts = totalSolved(), tp = totalPuzzles();
   document.getElementById('stats-text').textContent = `${ts} / ${tp}`;
   document.getElementById('progress-fill').style.width = (tp ? (ts / tp * 100) : 0) + '%';
+}
+
+function showSolvedView() {
+  viewMode = 'solved';
+  render();
+  closeSidebarMobile();
+}
+
+function findPuzzleById(id) {
+  for (const puzzles of Object.values(DATA)) {
+    const p = puzzles.find(x => x.id == id);
+    if (p) return p;
+  }
+  return null;
+}
+
+function findPuzzleCat(id) {
+  for (const [cat, puzzles] of Object.entries(DATA)) {
+    if (puzzles.find(x => x.id == id)) return cat;
+  }
+  return null;
+}
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDateOnly(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function renderSolvedView() {
+  document.getElementById('page-title').textContent = 'Решённые задачи';
+  document.getElementById('sort-bar').style.display = 'none';
+  document.getElementById('search').parentElement.style.display = 'none';
+
+  const solved = getSolved();
+  const entries = Object.entries(solved)
+    .map(([id, ts]) => ({ id: parseInt(id), ts, puzzle: findPuzzleById(id), cat: findPuzzleCat(id) }))
+    .filter(e => e.puzzle)
+    .sort((a, b) => b.ts.localeCompare(a.ts));
+
+  const ts = entries.length, tp = totalPuzzles();
+  const pct = tp ? Math.round(ts / tp * 100) : 0;
+
+  // Stats by category
+  const byCat = {};
+  for (const e of entries) {
+    byCat[e.cat] = (byCat[e.cat] || 0) + 1;
+  }
+
+  // Group by date
+  const byDate = {};
+  for (const e of entries) {
+    const day = e.ts.slice(0, 10);
+    if (!byDate[day]) byDate[day] = [];
+    byDate[day].push(e);
+  }
+
+  const list = document.getElementById('puzzle-list');
+  document.getElementById('page-subtitle').textContent = `${ts} из ${tp} (${pct}%)`;
+
+  let html = `<div class="solved-stats">
+    <div class="stat-card"><div class="stat-value">${ts}</div><div class="stat-label">Решено</div></div>
+    <div class="stat-card"><div class="stat-value">${tp - ts}</div><div class="stat-label">Осталось</div></div>
+    <div class="stat-card"><div class="stat-value">${pct}%</div><div class="stat-label">Прогресс</div></div>
+    <div class="stat-card"><div class="stat-value">${Object.keys(byDate).length}</div><div class="stat-label">Дней активности</div></div>
+  </div>`;
+
+  // Per-category breakdown
+  html += `<div class="solved-stats" style="margin-bottom:28px">`;
+  for (const [cat, puzzles] of Object.entries(DATA)) {
+    const done = byCat[cat] || 0;
+    const total = puzzles.length;
+    const catPct = total ? Math.round(done / total * 100) : 0;
+    html += `<div class="stat-card" style="cursor:pointer" onclick="currentCat='${cat}';viewMode='category';render()">
+      <div class="stat-value" style="font-size:1.1rem">${done}/${total}</div>
+      <div class="stat-label">${CAT_ICONS[cat] || ''} ${CAT_LABELS[cat] || cat}</div>
+      <div style="margin-top:6px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div style="width:${catPct}%;height:100%;background:var(--green);border-radius:2px"></div>
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  if (!entries.length) {
+    html += '<div class="empty-state"><div class="icon">📝</div><p>Пока нет решённых задач. Отмечайте задачи галочкой!</p></div>';
+  } else {
+    // Timeline grouped by day
+    html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+    for (const [day, items] of Object.entries(byDate)) {
+      html += `<div class="solved-timeline-date">${formatDateOnly(items[0].ts)}</div>`;
+      for (const e of items) {
+        const p = e.puzzle;
+        const time = new Date(e.ts);
+        const timeStr = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+        html += `<div class="solved-item" style="animation:fadeUp .3s both">
+          <span class="si-date">${timeStr}</span>
+          <span class="si-title">${esc(p.title)}</span>
+          <span class="si-cat">${CAT_ICONS[e.cat] || ''} ${CAT_LABELS[e.cat] || e.cat}</span>
+          <button class="si-remove" onclick="setSolved(${p.id},false);render()" title="Убрать из решённых">✕</button>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  list.innerHTML = html;
 }
 
 // Daily puzzle
