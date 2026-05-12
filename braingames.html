@@ -286,6 +286,13 @@ body{
   color:var(--text);font-size:1.1rem;transition:all .2s;
 }
 .modal-close:hover{background:var(--red);color:#fff}
+.daily-nav-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--border);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text);font-size:1rem;transition:all .2s;
+}
+.daily-nav-btn:hover{background:var(--accent);color:var(--bg)}
 
 /* === EMPTY STATE === */
 .empty-state{
@@ -493,26 +500,30 @@ function updateStats() {
 }
 
 // Daily puzzle
-function getDailyPuzzle() {
+let dailyOffset = 0;
+function getDailyPuzzle(offset) {
   const allPuzzles = Object.values(DATA).flat();
   const unsolved = allPuzzles.filter(p => !isSolved(p.id));
   const pool = unsolved.length ? unsolved : allPuzzles;
-  // Deterministic per day
   const today = new Date();
   const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-  const idx = seed % pool.length;
+  const idx = ((seed + offset) % pool.length + pool.length) % pool.length;
   return pool[idx];
 }
 
 function showDaily() {
-  const p = getDailyPuzzle();
+  const p = getDailyPuzzle(dailyOffset);
   if (!p) return;
   const solved = isSolved(p.id);
   const overlay = document.getElementById('modal-overlay');
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-header">
       <span class="modal-title">&#9733; Задача дня</span>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="daily-nav-btn" onclick="dailyOffset--;showDaily()" title="Предыдущая">&#8592;</button>
+        <button class="daily-nav-btn" onclick="dailyOffset++;showDaily()" title="Следующая">&#8594;</button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
     </div>
     <div class="card-top" style="margin-bottom:12px">
       <input type="checkbox" class="solve-check" ${solved ? 'checked' : ''} onchange="toggleSolve(${p.id}, this.checked)">
