@@ -69,21 +69,50 @@ body{
     box-shadow:4px 0 30px #0005;
   }
   .sidebar.open{left:0}
-  .main{padding:20px 16px;max-width:100%}
-  .burger{display:flex!important}
+  .main{padding:68px 14px 24px;max-width:100%}
+  .mobile-bar{display:flex!important}
   .sidebar-overlay{display:block!important}
+  .page-header{flex-direction:column;gap:10px}
+  .search-box input{width:100%}
+  .search-box{width:100%}
+  .card-meta{gap:10px}
+  .puzzle-card{padding:16px}
+  .page-title{font-size:1.35rem}
+  .solved-stats{grid-template-columns:repeat(2,1fr)}
 }
 
-/* === BURGER === */
+/* === MOBILE BAR === */
+.mobile-bar{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:20;
+  height:54px;padding:0 12px;gap:8px;
+  background:var(--bg-sidebar);border-bottom:1px solid var(--border);
+  align-items:center;
+}
 .burger{
-  display:none;position:fixed;top:16px;left:16px;z-index:20;
-  width:42px;height:42px;border-radius:50%;
+  width:40px;height:40px;border-radius:50%;flex-shrink:0;
   background:var(--bg-card);border:1px solid var(--border);
-  align-items:center;justify-content:center;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
   transition:all .2s;
 }
 .burger:hover{border-color:var(--accent);background:var(--bg-card-hover)}
-.burger svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2}
+.burger svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:2}
+.mobile-daily{
+  flex:1;height:38px;
+  background:linear-gradient(135deg,var(--accent),#c4923a);
+  color:var(--bg);font-family:var(--font-display);
+  font-weight:600;font-size:.82rem;
+  border:none;border-radius:var(--radius);cursor:pointer;
+  letter-spacing:-.01em;
+}
+.mobile-daily:active{opacity:.85}
+.mobile-solved-btn{
+  width:40px;height:40px;border-radius:50%;flex-shrink:0;
+  background:var(--bg-card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:var(--green);font-size:1rem;font-weight:700;
+  transition:all .2s;
+}
+.mobile-solved-btn:hover{border-color:var(--green)}
 .sidebar-overlay{
   display:none;position:fixed;inset:0;background:#000a;z-index:9;
   opacity:0;pointer-events:none;transition:opacity .3s;
@@ -373,9 +402,13 @@ body{
 </head>
 <body>
 
-<button class="burger" onclick="toggleSidebar()" aria-label="Меню">
-  <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-</button>
+<div class="mobile-bar">
+  <button class="burger" onclick="toggleSidebar()" aria-label="Меню">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <button class="mobile-daily" onclick="showDaily()">&#9733; Задача дня</button>
+  <button class="mobile-solved-btn" onclick="showSolvedView()">&#10003;</button>
+</div>
 <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <div class="app">
@@ -549,6 +582,16 @@ function render() {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 function toggleSolve(id, checked) {
+  if (checked) {
+    const p = findPuzzleById(id);
+    const name = p ? p.title : `#${id}`;
+    if (!confirm(`Отметить «${name}» как решённую?`)) {
+      // Revert checkbox
+      const cb = document.querySelector(`[data-id="${id}"] .solve-check, .modal .solve-check`);
+      if (cb) cb.checked = false;
+      return;
+    }
+  }
   setSolved(id, checked);
   const card = document.querySelector(`[data-id="${id}"]`);
   if (card) card.classList.toggle('solved', checked);
