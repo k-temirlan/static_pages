@@ -355,6 +355,15 @@
     letter-spacing: 0.01em;
   }
 
+  /* --- Added date --- */
+  .added-date {
+    text-align: right;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    opacity: 0.7;
+  }
+
   /* === Daily Button === */
   .daily-btn {
     display: inline-flex;
@@ -627,7 +636,7 @@ const patterns = [
   {
     id: 1,
     instead: '«Да, но...»',
-    doThis: 'Валидация + Коллаборация для решения рисков',
+    doThis: 'Валидация чувств / идеи + Коллаборация для решения рисков',
     examples: [
       {
         situation: 'Коллега: «Давай перепишем весь бэкенд на Go»',
@@ -652,7 +661,8 @@ const patterns = [
     ],
     formula: 'Валидация чувств / идеи + Вопрос «Как мы можем...?»',
     source: 'Импровизация (Yes, And principle)',
-    sourceUrl: 'https://youtu.be/RXqBSiCrxiY?si=hbJy2rh--lW90T0Z'
+    sourceUrl: 'https://youtu.be/RXqBSiCrxiY?si=hbJy2rh--lW90T0Z',
+    addedAt: '2026-05-14'
   }
 ];
 
@@ -675,6 +685,10 @@ function renderPatterns() {
         <div class="example-good">${escapeHtml(ex.good)}</div>
       </div>
     `).join('');
+
+    const dateHTML = pattern.addedAt
+      ? `<div class="added-date">Добавлено ${formatDate(pattern.addedAt)}</div>`
+      : '';
 
     const sourceHTML = pattern.source
       ? `<div class="source-section">${pattern.sourceUrl
@@ -715,12 +729,18 @@ function renderPatterns() {
       </div>
 
       ${sourceHTML}
+      ${dateHTML}
     `;
 
     container.appendChild(card);
   });
 
   observeCards();
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function escapeHtml(str) {
@@ -801,6 +821,9 @@ function shuffleDaily() {
   const ex = p.examples[Math.floor(Math.random() * p.examples.length)];
 
   const container = document.getElementById('dailyContent');
+  const dailyDateHTML = p.addedAt
+    ? `<div class="added-date">Добавлено ${formatDate(p.addedAt)}</div>`
+    : '';
   const sourceHTML = p.source
     ? `<div class="source-section" style="margin-top:16px;">${p.sourceUrl
         ? `<a href="${escapeHtml(p.sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(p.source)}</span></a>`
@@ -842,6 +865,7 @@ function shuffleDaily() {
     </div>
 
     ${sourceHTML}
+    ${dailyDateHTML}
   `;
 }
 
